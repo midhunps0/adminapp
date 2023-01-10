@@ -202,6 +202,7 @@ return [
         Ynotz\AccessControl\AccessControlProvider::class,
         Ynotz\SmartPages\SmartPagesProvider::class,
         Ynotz\EasyAdmin\EasyAdminProvider::class,
+        Ynotz\MediaManager\MediaManagerProvider::class
 
     ],
 

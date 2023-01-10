@@ -8,31 +8,39 @@ export default () => ({
     panelId: 'renderedpanel',
     async initAction() {
         let link = window.landingUrl;
+        let route = window.landingRoute;
         let el = document.getElementById(this.panelId);
         while (el == null) {
             await window.sleep(50);
             el = document.getElementById(this.panelId);
         }
         this.$store.app.xpages[link] = el.innerHTML;
-        history.pushState({href: link}, '', link);
+        // history.pushState({href: link}, '', link);
+        history.pushState({href: link, route: route, target: this.panelId, fragment: 'main-panel'}, '', link);
     },
     historyAction(e) {
         if (e.state != undefined && e.state != null) {
             let link = e.state.href;
+            let route = e.state.route;
+            let target = e.state.target;
+            let fragment = e.state.fragment;
             this.showPage = false;
             this.ajaxLoading = true;
             if (this.$store.app.xpages[link] != undefined) {
                 setTimeout(() => {
                     this.showPage = true;
                     // this.page = this.$store.app.xpages[link];
-                    this.$dispatch('pagechanged', {currentpath: link, currentroute: detail.route});
+                    this.$dispatch('pagechanged', {currentpath: link, currentroute: route, target: target, fragment: fragment});
+                    this.$dispatch('contentupdate', {content: this.$store.app.xpages[link], target: target});
                     this.ajaxLoading = false;
                 },
                     100
                 );
             } else {
                 setTimeout(() => {
-                    this.showPage = true;},
+                        this.showPage = true;
+                        this.ajaxLoading = false;
+                    },
                     100
                 );
             }
@@ -63,6 +71,7 @@ export default () => ({
     fetchLink(detail) {
         let targetPanelId;
         let theRoute = detail.route;
+        let fr = (typeof detail.fragment != 'undefined' && detail.fragment != null) ? detail.fragment : 'main-panel';
         let forceFresh = typeof detail.fresh != 'undefined' && detail.fresh === true;
         if (typeof detail.target == 'undefined' || detail.target == null) {
             targetPanelId = this.panelId;
@@ -95,16 +104,26 @@ export default () => ({
                     100
                 );
             }
-            history.pushState({href: thelink, route: theRoute}, '', thelink);
+            history.pushState({href: thelink, route: theRoute, target: targetPanelId, fragment: fr}, '', thelink);
         } else {
             this.$store.app.pageloading = true;
-            if (params != null) {
-                params['x_mode'] = 'ajax';
-            } else {
-                params = {x_mode: 'ajax'};
-            }
+            // if (params != null) {
+            //     params['x_mode'] = 'ajax';
+            //     params['x_fr'] = fr;
+            // } else {
+            //     params = {x_mode: 'ajax'};
+            //     params = {x_fr: fr};
+            // }
             this.ajaxLoading = true;
-            axios.get(link, {params: params}).then(
+            axios.get(
+                link,
+                {
+                    params: params,
+                    headers: {
+                        'x_fr': fr
+                    }
+                }
+              ).then(
                 (r) => {
                     this.showPage = false;
                     this.ajax = true;
@@ -124,7 +143,8 @@ export default () => ({
                     }
                     if (targetPanelId == this.panelId) {
                         this.$store.app.xpages[thelink] = r.data;
-                        history.pushState({href: thelink, route: theRoute}, '', thelink);
+                        // history.pushState({href: thelink, route: theRoute}, '', thelink);
+                        history.pushState({href: thelink, route: theRoute, target: targetPanelId, fragment: fr}, '', thelink);
                         this.$dispatch('pagechanged', {currentpath: link, currentroute: detail.route});
                     }
                     this.$store.app.pageloading = false;
@@ -138,5 +158,17 @@ export default () => ({
     },
     resetPages() {
         this.$store.app.xpages = [];
+    },
+    postForm(data) {
+        axios.post(data.url, data.formData, {
+            headers: {
+            'Content-Type': 'multipart/form-data',
+            'x_fr': data.fragment
+            }
+        }).then((r) => {
+            this.$dispatch('formresponse', {target: data.target, content: r.data});
+        }).catch(function (e) {
+            console.log(e);
+        });
     }
 });

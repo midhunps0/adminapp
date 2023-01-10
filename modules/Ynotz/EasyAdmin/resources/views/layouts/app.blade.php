@@ -18,6 +18,8 @@ currentroute=$event.detail.currentroute;"
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap">
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
+        @stack('css')
+        @stack('header_js')
     </head>
     <body x-data="initPage" x-init="initAction();"
         @linkaction.window="initialised = false; fetchLink($event.detail);"
@@ -32,5 +34,7 @@ currentroute=$event.detail.currentroute;"
                 @endfragment
             </main>
         </div>
+        <x-easyadmin::display.notice />
+        @stack('js')
     </body>
 </html>

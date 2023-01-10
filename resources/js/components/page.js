@@ -1,6 +1,9 @@
 import axios from 'axios';
+import * as utils from '@/components/utils';
+// import * as FilePond from 'filepond';
 
 export default () => ({
+    utils: utils,
     page: null,
     ajax: false,
     showPage: true,
@@ -38,7 +41,9 @@ export default () => ({
                 );
             } else {
                 setTimeout(() => {
-                    this.showPage = true;},
+                        this.showPage = true;
+                        this.ajaxLoading = false;
+                    },
                     100
                 );
             }
@@ -164,10 +169,9 @@ export default () => ({
             'x_fr': data.fragment
             }
         }).then((r) => {
-            console.log(r.data);
             this.$dispatch('formresponse', {target: data.target, content: r.data});
         }).catch(function (e) {
             console.log(e);
         });
-    }
+    },
 });

@@ -1,22 +1,45 @@
 @props([
-    'name',
-    'label',
-    // 'options',
-    'none_selected',
-    'options_type' => 'key_value',
-    'options_id_key' => 'id',
-    'options_text_key' => 'name',
-    'options_src' => null,
-    'options_src_trigger' => null,
-    'width' => 'full',
-    'placeholder' => null,
-    'wrapper_styles' => null,
-    'input_styles' => null,
+    'element',
     '_old' => [],
     'xerrors' => [],
     'label_position' => 'top',
-    'properties' => [],
+    '_old' => [],
+    'xerrors' => [],
+    'label_position' => 'top',
 ])
+@php
+    $name = $element['key'];
+    $label = $element['label'];
+    $options_type = $element['options_type'] ?? 'key_value';
+    $options_id_key = $element['options_id_key'] ?? 'id';
+    $options_text_key = $element['options_text_key'] ?? 'name';
+    $options_src = $element['options_src'];
+    $width = $element['width'] ?? 'full';
+    $none_selected = $element['none_selected'];
+    $placeholder = $element["placeholder"] ?? null;
+    $wrapper_styles = $element["wrapper_styles"] ?? null;
+    $input_styles = $element["input_styles"] ?? null;
+    $properties = $element['properties'] ?? [];
+    $fire_input_event = $element['fire_input_event'] ?? false;
+    $reset_on_events = $element['reset_on_events'] ?? null;
+    $toggle_on_events = $element['toggle_on_events'] ?? null;
+    $show = $element['show'] ?? true;
+    $authorised = $element['authorised'];
+
+    $wclass = 'w-full';
+    switch($width) {
+        case '1/2':
+            $wclass = 'w-1/2';
+            break;
+        case '1/3':
+            $wclass = 'w-1/3';
+            break;
+        case '1/4':
+            $wclass = 'w-1/4';
+            break;
+    }
+@endphp
+@if ($authorised)
 <div x-data="{
 //        values: [],
         oldVals: [],
@@ -32,12 +55,16 @@
         selectedVals: [],
         show: false,
         selId: '',
+        fireInputEvent: false,
+        resetSources: [],
+        toggleListeners: {},
+        showelement: true,
         fetchOptions(val) {
-            if (val.length > 2) {
+            {{-- if (val.length > 2) { --}}
                 axios.get(
                     '{{route('easyadmin.fetch', ['service' => $options_src[0], 'method' => $options_src[1]])}}',
                     {
-                        params: {'search': val}
+                        params: {'value': val}
                     }
                 ).then((r) => {
                     this.select_options = [];
@@ -58,11 +85,11 @@
                             this.select_options.push({key: op.{{$options_id_key}}, text: op.{{$options_text_key}} });
                         });
                     @endif
-                    this.initOptions(this.select_options)
+                    this.initOptions();
                 }).catch((e) => {
 
                 });
-            }
+            {{-- } --}}
         },
         open() { this.show = true; this.focusOnList(); },
         close() { this.show = false; this.search = ''; },
@@ -72,15 +99,18 @@
                 return op.value == val;
             })[0];
             if (!theoption.selected) {
-                this.options.forEach((op) => {
-                    if (op.value == val) {
-                        op.selected = true;
-                    }
-                });
                 if (!this.multiple) {
                     this.selected = [];
                     this.selectedVals = [];
                 }
+                this.options.forEach((op) => {
+                    if (op.value == val) {
+                        op.selected = true;
+                    } else if (!this.multiple) {
+                        op.selected = false;
+                    }
+                });
+
                 this.selected.push(theoption);
                 this.selectedVals.push(val);
             } else {
@@ -96,34 +126,58 @@
                     return item != val;
                 });
             }
+
+            if (this.fireInputEvent) {
+                $dispatch('eaforminputevent', {source: '{{$name}}', value: this.selectedVals, multiple: this.multiple});
+            }
+
             this.focusOnList();
             this.search = '';
+            if (!this.multiple) {
+                this.close();
+            }
         },
         remove(index, val) {
             let theoption = this.selected.filter((op) => {
                 return op.value == val;
             })[0];
-            this.options = this.options.filter((op) => {
-                return op.value != val;
+            this.options.forEach((op) => {
+                if(op.value == val) {
+                    op.selected = false;
+                }
             });
+            {{-- this.options = this.options.filter((op) => {
+                return op.value != val;
+            }); --}}
             this.selected = this.selected.filter((op) => {
                 return op.value != val;
             });
             this.selectedVals = this.selectedVals.filter((v) => {
                 return v != val;
             });
+
+            if (this.fireInputEvent) {
+                $dispatch('eaforminputevent', {source: '{{$name}}', value: this.selectedVals, multiple: this.multiple});
+            }
         },
-        initOptions(options) {
+        initOptions() {
             let intvalues = this.selectedVals.map((v) => {
                 return parseInt(v);
             });
             this.options = [];
-            for (let i = 0; i < options.length; i++) {
+            for (let i = 0; i < this.select_options.length; i++) {
                 this.options.push({
-                    value: options[i].key,
-                    text: options[i].text,
-                    selected: intvalues.includes(parseInt(options[i].key))
+                    value: this.select_options[i].key,
+                    text: this.select_options[i].text,
+                    selected: intvalues.includes(parseInt(this.select_options[i].key))
                 });
+            }
+            if (this.selectedVals.length > 0) {
+                for(i=0; i < this.options.length; i++) {
+                    if (intvalues.includes(parseInt(this.options[i].value))) {
+                        this.selected.push(this.options[i]);
+                    }
+                };
             }
         },
         focusOnList() {
@@ -137,17 +191,72 @@
 
             });
         },
+        resetOnEvent(detail) {
+            if(this.resetSources.includes(detail.source)) {
+                this.reset();
+            }
+        },
+        reset() {
+            {{-- this.select_options = []; --}}
+            this.selected = [];
+            this.selectedVals = [];
+        },
+        toggleOnEvent(source, value) {
+            if (Object.keys(this.toggleListeners).includes(source)) {
+                this.toggleListeners[source].forEach((item) => {
+                    switch(item.condition) {
+                        case '==':
+                            if (item.value == value) {
+                                this.showelement = item.show;
+                            }
+                            break;
+                        case '!=':
+                            if (item.value != value) {
+                                this.showelement = item.show;
+                            }
+                            break;
+                        case '>':
+                            if (item.value > value) {
+                                this.showelement = item.show;
+                            }
+                            break;
+                        case '<':
+                            if (item.value < value) {
+                                this.showelement = item.show;
+                            }
+                            break;
+                        case '>=':
+                            if (item.value >= value) {
+                                this.showelement = item.show;
+                            }
+                            break;
+                        case '<=':
+                            if (item.value <= value) {
+                                this.showelement = item.show;
+                            }
+                            break;
+                    }
+                });
+            }
+        }
     }"
     @class([
         'relative',
         'form-control',
-        '{{ $wclass }}',
+        $wclass,
         'my-4' => $label_position != 'side',
         'my-6 flex flex-row' => $label_position == 'side',
     ])
     x-init="
+        @if (!$show)
+            showelement =  false;
+        @endif
         @if(isset($_old[$name]))
+            @if(isset($properties['multiple']) && $properties['multiple'])
             selectedVals = [{{implode(',', $_old[$name])}}];
+            @else
+            selectedVals = [{{$_old[$name]}}];
+            @endif
         @endif
         @if ($xerrors->has($name))
             ers = {{json_encode($xerrors->get($name))}};
@@ -159,29 +268,50 @@
             required = true;
         @endif
         selId = 'select-{{$name}}';
-        initOptions(select_options);
         $nextTick(() => {
-            if (selectedVals.length > 0) {
-                let intvalues = selectedVals.map((v) => {
-                    return parseInt(v);
-                });
-                for(i=0; i < options.length; i++) {
-                    if (intvalues.includes(parseInt(options[i].value))) {
-                        selected.push(i);
-                        selectedVals.push(options[i].value);
-                    }
-                };
-            }
+            {{-- initOptions(); --}}
+            fetchOptions('');
         });
+
 
         @if (isset($properties['multiple']) && $properties['multiple'])
             multiple = true;
         @endif
+
+        @if($fire_input_event)
+            fireInputEvent = true;
+        @endif
+
+        @if (isset($reset_on_events))
+            @foreach ($reset_on_events as $source)
+                resetSources.push('{{$source}}');
+            @endforeach
+        @endif
+
+        @if (isset($toggle_on_events))
+        @foreach ($toggle_on_events as $source => $conditions)
+            toggleListeners.{{$source}} = [];
+            @foreach ($conditions as $condition)
+                toggleListeners.{{$source}}.push({
+                    condition: '{{$condition[0]}}',
+                    value: '{{$condition[1]}}',
+                    show: {{$condition[2] ? 'true' : 'false'}},
+                });
+            @endforeach
+        @endforeach
+        @endif
     "
+    @if (isset($reset_on_events) && count($reset_on_events) > 0)
+    @eaforminputevent.window="resetOnEvent($event.detail); toggleOnEvent($event.detail.source, $event.detail.value);"
+    @endif
     @sldosearch.window="fetchOptions($event.detail.searchstr);"
+    @formerrors.window="if (Object.keys($event.detail.errors).includes('{{$name}}')) {
+        errors = $event.detail.errors['{{$name}}'];
+    }"
+    x-show="showelement"
     >
     @if ($label_position != 'float')
-        <label @class(['label', 'justify-start', 'w-36' => $label_position == 'side'])>
+        <label @click="document.getElementById('{{$name}}-wrapper').click();" @class(['label', 'justify-start', 'w-36' => $label_position == 'side'])>
             <span class="label-text">{{ $label }}</span>@if (isset($properties['required']) && $properties['required'])
             &nbsp;<span class="text-warning">*</span>@endif
         </label>
@@ -190,23 +320,25 @@
             'flex-grow' => $label_position == 'side',
             'w-full' => $label_position != 'side',
         ])>
-        <select x-model="selectedVals" id="select-{{$name}}" @if(isset($properties['multiple']) && $properties['multiple']) name="{{ $name }}[]" @else name="{{$name}}" @endif class="h-0 w-11/12 absolute -z-0 rounded-md left-1 top-4 overflow-hidden"
-            @foreach ($properties as $prop => $val)
-                @if (!is_bool($val))
-                    {{ $prop }}="{{ $val }}"
-                @elseif ($val)
-                    {{ $prop }}
-                @endif
-            @endforeach @if(isset($properties['multiple']) && $properties['multiple'])  multiple @endif>
-            <template x-for="op in select_options">
-                <option :value="op.key" x-text="op.text" :selected="selectedVals.includes(op.key)"></option>
-            </template>
-        </select>
 
         <div class="w-full flex flex-col items-center">
             <div class="inline-block relative w-full">
                 <div class="flex flex-col items-center relative">
-                    <div x-on:click="open" class="w-full">
+
+                    <select tabindex="-1" id="select-{{$name}}" @if(isset($properties['multiple']) && $properties['multiple'])  x-model="selectedVals" name="{{ $name }}[]" @else x-model="selectedVals[0]" name="{{$name}}" @endif class="h-0 w-1/12 absolute -z-10 rounded-md left-1 top-4 right-4 overflow-hidden bg-transparent"
+                        @foreach ($properties as $prop => $val)
+                            @if (!is_bool($val))
+                                {{ $prop }}="{{ $val }}"
+                            @elseif ($val)
+                                {{ $prop }}
+                            @endif
+                        @endforeach @if(isset($properties['multiple']) && $properties['multiple'])  multiple @endif>
+                        <option value="">{{$none_selected}}</option>
+                        <template x-for="op in select_options">
+                            <option :value="op.key" x-text="op.text+' : '+op.key" :selected="selectedVals.includes(op.key)"></option>
+                        </template>
+                    </select>
+                    <div id="{{$name}}-wrapper" x-on:click="open" class="w-full" tabindex="0" @keypress="open()">
                         <div class="p-1 input flex border bg-base-100 rounded-lg"
                         :class="errors.length > 0 ? 'border-error border-opacity-50' : 'border-base-content border-opacity-20'">
                             <div class="flex flex-auto flex-wrap">
@@ -231,15 +363,23 @@
                             </div>
                             <div
                                 class="text-gray-300 w-8 py-1 pl-2 pr-1 border-l flex items-center border-base-200 svelte-1l8159u">
-
-                                <button type="button" x-show="isOpen() === true" x-on:click="open();"
+                                <button type="button" x-on:click="isOpen() === true ? open() : close()"
+                                    class="cursor-pointer w-6 h-6 text-gray-600">
+                                    <span x-show="isOpen() === true">
+                                        <x-easyadmin::display.icon icon="easyadmin::icons.chevron_up"/>
+                                    </span>
+                                    <span x-show="isOpen() === false">
+                                        <x-easyadmin::display.icon icon="easyadmin::icons.chevron_down"/>
+                                    </span>
+                                </button>
+                                {{-- <button type="button" x-show="isOpen() === true" x-on:click="open();"
                                     class="cursor-pointer w-6 h-6 text-gray-600">
                                     <x-easyadmin::display.icon icon="easyadmin::icons.zoom_out"/>
                                 </button>
                                 <button type="button" x-show="isOpen() === false" @click="close(); focusOnList();"
                                     class="cursor-pointer w-6 h-6 text-gray-600">
                                     <x-easyadmin::display.icon icon="easyadmin::icons.zoom_in"/>
-                                </button>
+                                </button> --}}
                             </div>
                         </div>
                     </div>
@@ -278,7 +418,7 @@
         </div>
 
         @if ($label_position == 'float')
-            <label
+            <label @click="document.getElementById('{{$name}}-wrapper').click();"
                 class="absolute duration-300 bg-base-100 px-2 transition-all left-2"
                 :class="selectedVals.length > 0 ? 'text-warning transform -translate-y-4 scale-90 top-2 z-10 origin-[0]' : 'transform translate-y-2 top-2'"
                 >
@@ -289,3 +429,4 @@
         <x:easyadmin::partials.errortext />
     </div>
 </div>
+@endif

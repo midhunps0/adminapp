@@ -15,7 +15,7 @@ class UsersController extends SmartController
 
     public function __construct(public UserService $connectorService, Request $request){
         parent::__construct($request);
-        $this->itemName = 'role';
+        $this->itemName = 'User';
         $this->indexView = 'easyadmin::admin.indexpanel';
         $this->createView = 'easyadmin::admin.create';
         $this->editView = 'accesscontrol::users.edit';

@@ -7,10 +7,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Ynotz\AccessControl\Traits\WithRoles;
+use Ynotz\MediaManager\Contracts\MediaOwner;
+use Ynotz\MediaManager\Traits\OwnsMedia;
 
-class User extends Authenticatable
+class User extends Authenticatable implements MediaOwner
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable, WithRoles, OwnsMedia;
 
     /**
      * The attributes that are mass assignable.

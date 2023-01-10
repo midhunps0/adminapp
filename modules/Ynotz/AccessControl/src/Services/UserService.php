@@ -3,9 +3,12 @@ namespace Ynotz\AccessControl\Services;
 
 
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Hash;
 use Ynotz\AccessControl\Models\Role;
-use Ynotz\AccessControl\Models\User;
+// use Ynotz\AccessControl\Models\User;
+use App\Models\User;
 use Ynotz\EasyAdmin\Services\FormHelper;
+use Ynotz\AccessControl\Services\RoleService;
 use Ynotz\EasyAdmin\Services\DashboardService;
 use Ynotz\EasyAdmin\Traits\IsModelViewConnector;
 use Ynotz\EasyAdmin\Contracts\ModelViewConnector;
@@ -16,7 +19,15 @@ class UserService implements ModelViewConnector
 
     protected $storeValidationRules = [
         'name' => 'required|min:3',
-        'role' => 'required'
+        'password' => 'required|min:6',
+        'email' => 'required|email|unique:users,email',
+        'roles' => 'required',
+        'photo' => 'sometimes'
+        // 'photo.*' => 'file|size:512|mimes:jpeg'
+    ];
+
+    protected $mediaFields = [
+        'photo' => []
     ];
 
     public function __construct()
@@ -123,6 +134,7 @@ class UserService implements ModelViewConnector
                 'id' => 'form_user_create',
                 'action_route' => 'users.store',
                 'label_position' => 'float', //top/side/float
+                'success_redirect_route' => 'users.index',
                 'items' => [
                     FormHelper::makeInput(
                         inputType: 'text',
@@ -131,38 +143,65 @@ class UserService implements ModelViewConnector
                         properties: ['required' => true],
                         fireInputEvent: true
                     ),
+                    FormHelper::makeInput('email', 'email', 'Email', ['required' => true]),
                     FormHelper::makeInput(
                         inputType: 'text',
-                        key: 'slug',
-                        label: 'Slug',
-                        properties: ['required' => true],
-                        updateOnEvents: [
-                            'name' => [
-                                urlencode(Static::class),
-                                'getSlug'
-                            ]
-                        ]
+                        key: 'password',
+                        label: 'Password',
+                        properties: ['required' => true, 'minlength' => 6],
                     ),
-                    FormHelper::makeInput('email', 'email', 'Email', ['required' => true]),
+                    // FormHelper::makeInput(
+                    //     inputType: 'text',
+                    //     key: 'useslug',
+                    //     label: 'Use Slug?',
+                    //     properties: ['required' => true],
+                    //     fireInputEvent: true
+                    // ),
+                    // FormHelper::makeInput(
+                    //     inputType: 'text',
+                    //     key: 'slug',
+                    //     label: 'Slug',
+                    //     properties: ['required' => true],
+                    //     updateOnEvents: [
+                    //         'name' => [
+                    //             urlencode(Static::class),
+                    //             'getSlug'
+                    //         ]
+                    //     ],
+                    //     toggleOnEvents: ['useslug' => [['==', 'No', false], ['==', 'Yes', true]]],
+                    //     show: false,
+                    //     authorised: true,
+                    // ),
                     FormHelper::makeSelect(
-                        key: 'role',
+                        key: 'roles',
                         label: 'Role',
-                        options: Role::all()->pluck('name', 'id')->toArray(),
-                        options_type: 'key_value',
+                        options: Role::all(),
+                        options_type: 'collection',
+                        options_id_key: 'id',
+                        options_text_key: 'name',
+                        options_src: [RoleService::class, 'suggestList'],
                         properties: [
                             'required' => true,
                             'multiple' => false
-                        ]
+                        ],
                     ),
                     // FormHelper::makeSuggestlist(
                     //     key: 'role',
                     //     label: 'Role',
                     //     options_src: [RoleService::class, 'suggestList'],
+                    //     resetOnEvents: ['name'],
                     //     properties: [
                     //         'required' => true,
                     //         'multiple' => true
-                    //     ]
+                    //     ],
+                    //     authorised: true,
                     // ),
+                    FormHelper::makeFileUploader(
+                        key: 'photo',
+                        label: 'Photo',
+                        properties: ['required' => true, 'multiple' => false],
+                        // fireInputEvent: true
+                    ),
                 ]
             ]
         ];
@@ -177,9 +216,15 @@ class UserService implements ModelViewConnector
         return true;
     }
 
-    public function getSlug($request): string
+    public function getSlug($text): string
     {
-        return Str::slug($request->input('value', ''));
+        return Str::slug($text);
+    }
+
+    private function processBeforeStore(array $data): array
+    {
+        $data['password'] = Hash::make($data['password']);
+        return $data;
     }
 }
 ?>

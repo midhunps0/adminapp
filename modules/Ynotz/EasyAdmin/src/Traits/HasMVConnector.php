@@ -80,28 +80,36 @@ trait HasMVConnector {
 
     public function store(Request $request)
     {
+        info($request->all());
         try {
             $rules = $this->connectorService->getStoreValidationRules();
             // $request->validate($rules);
             $validator = Validator::make($request->all(), $rules);
             $view = $this->createView ?? 'admin.'.Str::plural($this->itemName).'.create';
             $data = $this->connectorService->getCreatePageData();
-            if ($validator->fails()) {
-                $data['_old'] = $request->all();
-                $data['errors'] = $validator->errors();
-                return $this->buildResponse($view, $data);
-            }
-            return 'success';
-            // $this->connectorService->store($request->validated());
 
-            // return response()->json([
-            //     'success' => true,
-            //     'message' => 'New '.$this->itemName.' added.'
-            // ]);
+            if ($validator->fails()) {
+                // $data['_old'] = $request->all();
+                // $data['errors'] = $validator->errors();
+                // info('errors:');
+                // info($data['errors']);
+                return response()->json([
+                    'success' => false,
+                    'errors' => $validator->errors()
+                ]);
+                // return $this->buildResponse($view, $data);
+            }
+            // return 'success';
+            $this->connectorService->store($validator->validated());
+
+            return response()->json([
+                'success' => true,
+                'message' => 'New '.$this->itemName.' added.'
+            ]);
         } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
-                'error' => $e->getMessage()
+                'message' => $e->getMessage()
             ]);
         }
     }

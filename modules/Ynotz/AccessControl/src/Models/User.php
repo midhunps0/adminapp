@@ -8,13 +8,14 @@ use App\Models\User as AppUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-use Spatie\MediaLibrary\HasMedia;
-use Spatie\MediaLibrary\InteractsWithMedia;
+// use Spatie\MediaLibrary\HasMedia;
+// use Spatie\MediaLibrary\InteractsWithMedia;
 use Ynotz\AccessControl\Traits\WithRoles;
+use Ynotz\MediaManager\Traits\OwnsMedia;
 
-class User extends AppUser implements HasMedia
+class User extends AppUser
 {
-    use HasApiTokens, HasFactory, Notifiable, WithRoles, InteractsWithMedia;
+    use HasApiTokens, HasFactory, Notifiable, WithRoles, OwnsMedia;
 
     /**
      * The attributes that are mass assignable.

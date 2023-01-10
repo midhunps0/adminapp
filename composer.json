@@ -32,7 +32,8 @@
             "Database\\Seeders\\": "database/seeders/",
             "Ynotz\\AccessControl\\": "modules/Ynotz/AccessControl/src/",
             "Ynotz\\SmartPages\\": "modules/Ynotz/SmartPages/src/",
-            "Ynotz\\EasyAdmin\\": "modules/Ynotz/EasyAdmin/src/"
+            "Ynotz\\EasyAdmin\\": "modules/Ynotz/EasyAdmin/src/",
+            "Ynotz\\MediaManager\\": "modules/Ynotz/MediaManager/src/"
         }
     },
     "autoload-dev": {

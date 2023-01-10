@@ -21,6 +21,7 @@ trait IsModelViewConnector{
     protected $sqlOnlyFullGroupBy = true;
     protected $defaultSearchColumn = 'name';
     protected $defaultSearchMode = 'startswith'; // contains, startswith, endswith
+    protected $relations = [];
     public $downloadFileName = 'results';
 
     public function index(
@@ -180,7 +181,63 @@ trait IsModelViewConnector{
 
     public function store(array $data)
     {
-        return $this->modelClass::create($data);
+        //filter out relationship fields from $data
+        $ownFields = [];
+        $relations = [];
+        $mediaFields = [];
+        foreach ($data as $key => $value) {
+            if ($this->isRelation($key)) {
+                $relations[$key] = $value;
+            } elseif ($this->isMideaField($key)) {
+                $mediaFields[$key] = $value;
+            } else {
+                $ownFields[$key] = $value;
+            }
+        }
+        info('store data:');
+        info($data);
+        info($mediaFields);
+        info($ownFields);
+        info($relations);
+
+        DB::beginTransaction();
+        try {
+            $instance = $this->modelClass::create($this->processBeforeStore($ownFields));
+            //attach relationship instances as per the relation
+            foreach ($relations as $rel => $val) {
+                $type = $this->getRelationType($rel);
+                info('rel model class:');
+                switch ($type) {
+                    case 'BelongsTo':
+                        $relInstance = ($this->getRelatedModelClass($rel))::find($val);
+                        $instance->$rel()->associate($relInstance);
+                        $instance->save();
+                        break;
+                    case 'BelongsToMany':
+                        $instance->$rel()->attach($val);
+                        break;
+                    case 'HasOne':
+                        $relInstance = ($this->getRelatedModelClass($rel))::find($val);
+                        $instance->$rel()->save($relInstance);
+                        break;
+                    case 'HasMany':
+                        foreach ($val as $id) {
+                            $cl = ($this->getRelatedModelClass($rel))::find($id);
+                            $instance->$rel()->save($cl);
+                        }
+                        break;
+                }
+            }
+            info('starting media processing..');
+            foreach ($mediaFields as $fieldName => $val) {
+                $instance->addMediaFromEAInput($fieldName, $val);
+            }
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+        }
+
+        return $instance;
     }
 
     private function querySelectedIds(Builder $query, string $idKey, array $ids): void
@@ -233,7 +290,8 @@ trait IsModelViewConnector{
             $rel = $searchesMap[$data[0]] ?? $data[0];
             $rel = $data[0];
             $op = $this->getSearchOperator($data[1], $data[2]);
-            if($this->isRelation($rel)) {
+            // if($this->isRelation($rel)) {
+            if($this->isRelation(explode('.', $rel)[0])) {
                 $this->applyRelationSearch($query, $rel, $this->relations()[$rel]['search_column'], $op['op'], $op['val']);
             } else {
                 $query->where($rel, $op['op'], $op['val']);
@@ -251,7 +309,8 @@ trait IsModelViewConnector{
             $rel = $filtersMap[$data[0]] ?? $data[0];
             $rel = $data[0];
             $op = $this->getSearchOperator($data[1], $data[2]);
-            if($this->isRelation($rel)) {
+            // if($this->isRelation($rel)) {
+            if($this->isRelation(explode('.', $rel)[0])) {
                 // dd($rel, $op['op'], $op['val']);
                 $this->applyRelationSearch($query, $rel, $this->relations()[$rel]['filter_column'], $op['op'], $op['val']);
             } else {
@@ -322,6 +381,12 @@ trait IsModelViewConnector{
         $ar = explode('\\', $type);
         return $ar[count($ar) - 1];
     }
+
+    private function getRelatedModelClass(string $relation): string
+    {
+        $obj = new $this->modelClass;
+        return $obj->{$relation}()->getRelated();
+    }
     // private function getFilterParams($query, array $filters, array $filtersMap): array
     // {
     //     $filterData = [];
@@ -352,7 +417,17 @@ trait IsModelViewConnector{
 
     private function isRelation($key): bool
     {
-        return in_array(explode('.', $key)[0], array_keys($this->relations()));
+        return in_array($key, array_keys($this->relations()));
+    }
+
+    private function isMideaField($key): bool
+    {
+        return in_array($key, array_keys($this->getFileFields()));
+    }
+
+    private function getFileFields(): array
+    {
+        return $this->mediaFields ?? [];
     }
 
 
@@ -448,10 +523,8 @@ trait IsModelViewConnector{
         return $this->storeValidationRules ?? [];
     }
 
-    public function suggestlist($request)
+    public function suggestlist($search = null)
     {
-        $search = $request->input('search', null);
-
         if (isset($search)) {
             switch($this->defaultSearchMode) {
                 case 'contains':
@@ -473,6 +546,11 @@ trait IsModelViewConnector{
     private function getModelShortName() {
         $a = explode('\\', $this->modelClass);
         return $a[count($a) - 1];
+    }
+
+    private function processBeforeStore(array $data): array
+    {
+        return $data;
     }
 }
 ?>
