@@ -1,24 +1,9 @@
 @props([
     'element',
-    // 'name',
-    // 'label',
-    // 'options',
-    // 'none_selected',
-    // 'options_type' => 'key_value',
-    // 'options_id_key' => 'id',
-    // 'options_text_key' => null,
-    // 'options_src' => null,
-    // 'options_src_trigger' => null,
-    // 'width' => 'full',
-    // 'placeholder' => null,
-    // 'wrapper_styles' => null,
-    // 'input_styles' => null,
     '_old' => [],
+    '_current_values' => [],
     'xerrors' => [],
     'label_position' => 'top',
-    // 'properties' => [],
-    // 'fire_input_event' => false,
-    // 'reset_on_events' => null
 ])
 @php
     $name = $element['key'];
@@ -41,15 +26,24 @@
     $authorised = $element['authorised'] ?? true;
 
     $wclass = 'w-full';
-    switch($width) {
+    switch ($width) {
+        case 'full':
+            $wclass = 'w-full';
+            break;
         case '1/2':
             $wclass = 'w-1/2';
             break;
         case '1/3':
             $wclass = 'w-1/3';
             break;
+        case '2/3':
+            $wclass = 'w-2/3';
+            break;
         case '1/4':
             $wclass = 'w-1/4';
+            break;
+        case '3/4':
+            $wclass = 'w-3/4';
             break;
     }
 @endphp
@@ -169,11 +163,21 @@
             });
             this.options = [];
             for (let i = 0; i < options.length; i++) {
-                this.options.push({
+                let op = {
+                    value: options[i].key,
+                    text: options[i].text,
+                };
+                Object.keys(options[i]).forEach((k) => {
+                  if (k != 'key' && k != 'text') {
+                    op[k] = options[i][k];
+                  }
+                });
+                this.options.push(op);
+                {{-- this.options.push({
                     value: options[i].key,
                     text: options[i].text,
                     selected: intvalues.includes(parseInt(options[i].key))
-                });
+                }); --}}
             }
         },
         focusOnFirstItem() {
@@ -210,8 +214,8 @@
             });
         },
         resetOnEvent(detail) {
-            this.reset();
             if(this.resetSources.includes(detail.source)) {
+                this.reset();
                 this.fetchOptions(detail.source, detail.value);
             }
         },
@@ -259,9 +263,6 @@
             }
         },
         isSelected(key) {
-            console.log('sv, key');
-            console.log(this.selectedVals);
-            console.log(key);
             return this.selectedVals.includes(parseInt(key));
         }
     }"
@@ -269,12 +270,18 @@
         'relative',
         'form-control',
         $wclass,
-        'my-4' => $label_position != 'side',
         'my-6 flex flex-row' => $label_position == 'side',
     ])
     x-init="
         @if (!$show)
             showelement =  false;
+        @endif
+        @if(isset($_current_values[$name]))
+            @if(isset($properties['multiple']) && $properties['multiple'])
+            selectedVals = [{{implode(',', $_current_values[$name])}}];
+            @else
+            selectedVals = [{{$_current_values[$name]}}];
+            @endif
         @endif
         @if(isset($_old[$name]))
             @if(isset($properties['multiple']) && $properties['multiple'])
@@ -295,9 +302,26 @@
                 select_options.push({key: op, text: op });
             });
         @elseif ($options_type == 'collection')
-            ops.forEach((op) => {
+            {{-- ops.forEach((op) => {
                 select_options.push({key: op.{{$options_id_key}}, text: op.{{$options_text_key}} });
-            });
+            }); --}}
+            @if (!isset($options_display_keys))
+                ops.forEach((op) => {
+                    select_options.push({key: op.{{$options_id_key}}, text: op.{{$options_text_key}} });
+                });
+            @else
+                ops.forEach((op) => {
+                    select_options.push({
+                        key: op.{{$options_id_key}},
+                        text: op.{{$options_text_key}},
+                        @foreach ($option_display_keys as $key)
+                        @if ($key != $options_text_key)
+                        {{$key}}: op.{{$key}},
+                        @endif
+                        @endforeach
+                    });
+                });
+            @endif
         @endif
         @if ($xerrors->has($name))
             ers = {{json_encode($xerrors->get($name))}};
@@ -352,11 +376,39 @@
         @endif
     "
     @if (isset($reset_on_events) && count($reset_on_events) > 0)
-    @eaforminputevent.window="resetOnEvent($event.detail); toggleOnEvent($event.detail.source, $event.detail.value);"
+    @eaforminputevent.window="resetOnEvent($event.detail);"
     @endif
-    @formerrors.window="if (Object.keys($event.detail.errors).includes('{{$name}}')) {
-        errors = $event.detail.errors['{{$name}}'];
-    }"
+    @if (isset($toggle_on_events) && count($toggle_on_events) > 0)
+    @eaforminputevent.window="toggleOnEvent($event.detail.source, $event.detail.value);"
+    @endif
+    @formerrors.window="
+        errors = '';
+
+        erArr = [];
+        Object.keys($event.detail.errors).forEach((e) => {
+            if (e.startsWith('{{$name}}')) {
+                erArr.push(($event.detail.errors[e]).reduce((result, e) => {
+                    if (result.length > 0) {
+                        return result + ' ' + e;
+                    } else {
+                        return result + e;
+                    }
+                }));
+            }
+        });
+
+        errors = erArr.reduce(
+            (result, e) => {
+                theFile.error = true;
+                if (result.length > 0) {
+                    return result + ' ' + e;
+                } else {
+                    return result + e;
+                }
+            },
+            ''
+        );
+    "
     x-show="showelement"
     >
     @if ($label_position != 'float')
@@ -442,7 +494,8 @@
                                     class="overflow-auto">
                                     <button @click.prevent.stop="false;" x-show="!option.selected" class="cursor-pointer w-full border-base-200 rounded-t border-b focus:outline-none focus:bg-base-200 hover:bg-base-200 js-btn"
                                         @click="select(option.value,$event)">
-                                        <div
+                                        <x-dynamic-component :component="$element['list_component']" />
+                                        {{-- <div
                                             class="flex w-full items-center p-2 pl-2 border-transparent border-l-2 relative">
                                             <div class="w-full items-center flex justify-between">
                                                 <div class="mx-2 leading-6" x-text="option.text"></div>
@@ -456,7 +509,7 @@
                                                     </svg>
                                                 </div>
                                             </div>
-                                        </div>
+                                        </div> --}}
                                     </button>
                                 </template>
                             </div>

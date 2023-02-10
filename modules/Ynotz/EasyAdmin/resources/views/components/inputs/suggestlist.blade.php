@@ -1,9 +1,7 @@
 @props([
     'element',
     '_old' => [],
-    'xerrors' => [],
-    'label_position' => 'top',
-    '_old' => [],
+    '_current_values' => [],
     'xerrors' => [],
     'label_position' => 'top',
 ])
@@ -27,15 +25,24 @@
     $authorised = $element['authorised'];
 
     $wclass = 'w-full';
-    switch($width) {
+    switch ($width) {
+        case 'full':
+            $wclass = 'w-full';
+            break;
         case '1/2':
             $wclass = 'w-1/2';
             break;
         case '1/3':
             $wclass = 'w-1/3';
             break;
+        case '2/3':
+            $wclass = 'w-2/3';
+            break;
         case '1/4':
             $wclass = 'w-1/4';
+            break;
+        case '3/4':
+            $wclass = 'w-3/4';
             break;
     }
 @endphp
@@ -48,9 +55,7 @@
         errors: '',
         multiple: false,
         search: '',
-        options: [
-
-        ],
+        options: [],
         selected: [],
         selectedVals: [],
         show: false,
@@ -71,6 +76,7 @@
                     {{-- r.data.results.forEach((item) => {
                         this.select_options.push({key: item.{{$options_id_key}}, text: item.{{$options_text_key}}});
                     }); --}}
+                    console.log(r.data.results);
                     let ops = r.data.results;
                     @if ($options_type == 'key_value')
                         Object.keys(ops).forEach((key) => {
@@ -81,9 +87,23 @@
                             this.select_options.push({key: op, text: op });
                         });
                     @elseif ($options_type == 'collection')
-                        ops.forEach((op) => {
-                            this.select_options.push({key: op.{{$options_id_key}}, text: op.{{$options_text_key}} });
-                        });
+                        @if (!isset($options_display_keys))
+                            ops.forEach((op) => {
+                                this.select_options.push({key: op.{{$options_id_key}}, text: op.{{$options_text_key}} });
+                            });
+                        @else
+                            ops.forEach((op) => {
+                                this.select_options.push({
+                                    key: op.{{$options_id_key}},
+                                    text: op.{{$options_text_key}},
+                                    @foreach ($option_display_keys as $key)
+                                    @if ($key != $options_text_key)
+                                    {{$key}}: op.{{$key}},
+                                    @endif
+                                    @endforeach
+                                });
+                            });
+                        @endif
                     @endif
                     this.initOptions();
                 }).catch((e) => {
@@ -166,12 +186,23 @@
             });
             this.options = [];
             for (let i = 0; i < this.select_options.length; i++) {
-                this.options.push({
+                let op = {
+                    value: this.select_options[i].key,
+                    text: this.select_options[i].text,
+                };
+                Object.keys(this.select_options[i]).forEach((k) => {
+                  if (k != 'key' && k != 'text') {
+                    op[k] = this.select_options[i][k];
+                  }
+                });
+                this.options.push(op);
+                {{-- this.options.push({
                     value: this.select_options[i].key,
                     text: this.select_options[i].text,
                     selected: intvalues.includes(parseInt(this.select_options[i].key))
-                });
+                }); --}}
             }
+            console.log('inside Init    options: 3');
             if (this.selectedVals.length > 0) {
                 for(i=0; i < this.options.length; i++) {
                     if (intvalues.includes(parseInt(this.options[i].value))) {
@@ -179,6 +210,8 @@
                     }
                 };
             }
+            console.log('options:');
+            console.log(this.options);
         },
         focusOnList() {
             $nextTick(() => {
@@ -244,14 +277,19 @@
         'relative',
         'form-control',
         $wclass,
-        'my-4' => $label_position != 'side',
-        'my-6 flex flex-row' => $label_position == 'side',
+        'flex flex-row' => $label_position == 'side',
     ])
     x-init="
         @if (!$show)
             showelement =  false;
         @endif
-        @if(isset($_old[$name]))
+        @if(isset($_current_values[$name]))
+            @if(isset($properties['multiple']) && $properties['multiple'])
+            selectedVals = [{{implode(',', $_current_values[$name])}}];
+            @else
+            selectedVals = [{{$_current_values[$name]}}];
+            @endif
+        @elseif(isset($_old[$name]))
             @if(isset($properties['multiple']) && $properties['multiple'])
             selectedVals = [{{implode(',', $_old[$name])}}];
             @else
@@ -302,12 +340,43 @@
         @endif
     "
     @if (isset($reset_on_events) && count($reset_on_events) > 0)
-    @eaforminputevent.window="resetOnEvent($event.detail); toggleOnEvent($event.detail.source, $event.detail.value);"
+    @eaforminputevent.window="resetOnEvent($event.detail);"
+    @endif
+    @if (isset($toggle_on_events) && count($toggle_on_events) > 0)
+    @eaforminputevent.window="toggleOnEvent($event.detail.source, $event.detail.value);"
     @endif
     @sldosearch.window="fetchOptions($event.detail.searchstr);"
-    @formerrors.window="if (Object.keys($event.detail.errors).includes('{{$name}}')) {
-        errors = $event.detail.errors['{{$name}}'];
-    }"
+    @formerrors.window="
+        errors = '';
+        erArr = [];
+        Object.keys($event.detail.errors).forEach((e) => {
+            if (e.startsWith('{{$name}}')) {
+                erArr.push(($event.detail.errors[e]).reduce((result, e) => {
+                    if (result.length > 0) {
+                        return result + ' ' + e;
+                    } else {
+                        return result + e;
+                    }
+                }));
+            }
+        });
+
+        errors = erArr.reduce(
+            (result, e) => {
+                fileKey = e.split('::')[0];
+                theFile = files.filter((f) => {
+                    return f.path == fileKey;
+                })[0];
+                theFile.error = true;
+                if (result.length > 0) {
+                    return result + ' ' + e.replace(fileKey+'::', theFile.name);
+                } else {
+                    return result + e.replace(fileKey+'::', theFile.name);
+                }
+            },
+            ''
+        );
+    "
     x-show="showelement"
     >
     @if ($label_position != 'float')
@@ -393,7 +462,9 @@
                                     class="overflow-auto">
                                     <button @click.prevent.stop="false;" x-show="!option.selected" class="cursor-pointer w-full border-base-200 rounded-t border-b focus:outline-none focus:bg-base-200 hover:bg-base-200 js-btn"
                                         @click="select(option.value,$event)">
-                                        <div
+
+                                        <x-dynamic-component :component="$element['list_component']" />
+                                        {{-- <div
                                             class="flex w-full items-center p-2 pl-2 border-transparent border-l-2 relative">
                                             <div class="w-full items-center flex justify-between">
                                                 <div class="mx-2 leading-6" x-text="option.text"></div>
@@ -407,7 +478,7 @@
                                                     </svg>
                                                 </div>
                                             </div>
-                                        </div>
+                                        </div> --}}
                                     </button>
                                 </template>
                             </div>

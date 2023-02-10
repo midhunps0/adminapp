@@ -9,6 +9,7 @@
     $type = $element['input_type'];
     $name = $element['key'];
     $authorised = $element['authorised'];
+    $displayText = $element['display_text'];
     $label = $element['label'];
     $width = $element['width'] ?? 'full';
     $placeholder = $element["placeholder"] ?? null;
@@ -46,37 +47,16 @@
 @if ($authorised)
 
 <div x-data="{
-        textval: '',
+        elvalue: '',
+        displayText: false,
+        onText: 'Yes',
+        offText: 'No',
         errors: '',
         required: false,
         listeners: {},
         resetSources: [],
         toggleListeners: {},
         showelement: true,
-        updateOnEvent(source, value) {
-            if (Object.keys(this.listeners).includes(source)) {
-                console.log('source event caught by {{$name}}');
-                console.log(this.listeners[source].serviceclass);
-                if (this.listeners[source].serviceclass == null) {
-                    this.textval = '';
-                    console.log('textval reset!');
-                } else {
-                    let url = '{{route('easyadmin.fetch', ['service' => '__service__', 'method' => '__method__'])}}';
-                    url = url.replace('__service__', this.listeners[source].serviceclass);
-                    url = url.replace('__method__', this.listeners[source].method);
-                    axios.get(
-                        url,
-                        {
-                            params: {'value': value}
-                        }
-                    ).then((r) => {
-                        this.textval = r.data.results;
-                    }).catch((e) => {
-                        console.log(e);
-                    });
-                }
-            }
-        },
         toggleOnEvent(source, value) {
             if (Object.keys(this.toggleListeners).includes(source)) {
                 this.toggleListeners[source].forEach((item) => {
@@ -121,13 +101,18 @@
             }
         },
         reset() {
-            this.textval = '';
+            this.elvalue = '';
             this.errors = '';
         }
     }"
     x-init="
         @if (!$show)
             showelement =  false;
+        @endif
+        @if (isset($displayText) && is_array($displayText))
+            displayText = true;
+            onText = '{{$displayText[0]}}';
+            offText = '{{$displayText[1];}}'
         @endif
         @if ($xerrors->has($name))
             ers = {{json_encode($xerrors->get($name))}};
@@ -137,16 +122,6 @@
         @endif
         @if (isset($properties['required']) && $properties['required'])
             required = true;
-        @endif
-        @if (isset($update_on_events))
-            @foreach ($update_on_events as $source => $api)
-                listeners.{{$source}} = {
-                    serviceclass: @if (isset($api[0])) '{{$api[0]}}' @else null @endif,
-                    method: @if (isset($api[1])) '{{$api[1]}}' @else null @endif,
-                };
-            @endforeach
-            console.log('{{$name}} listeners: ');
-            console.log(listeners);
         @endif
         @if (isset($reset_on_events))
             @foreach ($reset_on_events as $source)
@@ -166,15 +141,14 @@
         @endforeach
         @endif
         @if (isset($_old[$name]))
-            textval = '{{$_old[$name]}}';
+            elvalue = '{{$_old[$name]}}';
         @endif
-
     "
     @class([
         'relative',
         'form-control',
         $wclass,
-        'flex flex-row' => $label_position == 'side'
+        'flex flex-row' => $label_position != 'top'
     ])
 
     @if (isset($update_on_events) || isset($toggle_on_events))
@@ -197,28 +171,30 @@
     @endif
     x-show="showelement"
     >
-    @if ($label_position != 'float')
+    {{-- @if ($label_position != 'float') --}}
     <label for="{{$name}}" @class([
-            'label',
-            'justify-start',
-            'w-36' => $label_position == 'side'
+            'label py-0 my-0 justify-start' => true,
+            'w-36' => $label_position == 'side',
+            'mr-2' => $label_position == 'float',
         ])>
         <span class="label-text">{{$label}}</span>@if (isset($properties['required']) && $properties['required'])
         &nbsp;<span class="text-warning">*</span>@endif
     </label>
-    @endif
+    {{-- @endif --}}
     <div @class([
             'flex-grow' => $label_position == 'side',
-            'w-full' => $label_position != 'side',
+            'w-full' => $label_position == 'top',
         ]) >
         <input
-            id="{{$name}}" x-model="textval" type="{{$type}}" name="{{$name}}"
+            id="{{$name}}" x-model="elvalue" type="checkbox" name="{{$name}}"
             @if ($label_position == 'float')
             placeholder="' '"
             @else
             placeholder="{{$placeholder ?? ''}}"
             @endif
-            class="peer input w-full input-bordered"
+            class="peer checkbox checkbox-primary @if (isset($element['toggle']) && $element['toggle'])
+                toggle
+            @endif"
             :class="errors.length == 0 || 'border-error  border-opacity-50'"
             value="{{ $_current_values[$name] ?? ($_old[$name] ?? '') }}"
             @foreach ($properties as $prop => $val)
@@ -229,18 +205,18 @@
                 @endif
             @endforeach
             @if ($fire_input_event)
-                @change="$dispatch('eaforminputevent', {source: '{{$name}}', value: textval});"
+                @change="$dispatch('eaforminputevent', {source: '{{$name}}', value: elvalue});"
             @endif
-            />
+            />&nbsp;&nbsp;&nbsp;<span x-show="displayText" x-text="elvalue ? onText : offText"></span>
 
-        @if ($label_position == 'float')
-        <label for="{{$name}}" class="absolute text-warning peer-placeholder-shown:text-base-content duration-300 transform -translate-y-4 scale-90 top-2 left-2 z-10 origin-[0] bg-base-100 px-2 peer-focus:px-2 peer-focus:text-warning peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-2 peer-focus:scale-90 peer-focus:-translate-y-4 transition-all">
-            {{-- {{$label}} --}}
+        {{-- @if ($label_position == 'float')
+        <label for="{{$name}}" class="absolute text-warning peer-checked:text-base-content duration-300 transform -translate-y-4 scale-90 top-2 left-2 z-10 origin-[0] bg-base-100 px-2 peer-focus:px-2 peer-focus:text-warning [&:not(peer-checked)]:scale-100 [&:not(peer-checked)]:-translate-y-1/2 [&:not(peer-checked)]:top-1/2 peer-focus:top-2 peer-focus:scale-90 peer-focus:-translate-y-4 transition-all">
+
             <span>{{$label}}</span>@if (isset($properties['required']) && $properties['required'])
             &nbsp;<span class="text-warning">*</span>
             @endif
         </label>
-        @endif
+        @endif --}}
 
         <x:easyadmin::partials.errortext />
     </div>

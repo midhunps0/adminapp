@@ -18,6 +18,10 @@ interface MediaOwner
         array|string $vals
     ): void;
 
+    public function getMediaVariants(): array;
+
+    public function getMediaStorage(): array;
+
     public function getAllMedia(string $property): Collection;
 
     public function getSingleMedia(string $property): MediaItem;

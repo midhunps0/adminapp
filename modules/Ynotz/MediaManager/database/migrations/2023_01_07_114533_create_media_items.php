@@ -20,8 +20,8 @@ return new class extends Migration
             $table->string('filepath');
             $table->string('disk');
             $table->string('type');
-            $table->string('size');
-            $table->string('mime_type')->nullable();
+            $table->bigInteger('size');
+            $table->string('mime_type');
             $table->timestamps();
         });
     }

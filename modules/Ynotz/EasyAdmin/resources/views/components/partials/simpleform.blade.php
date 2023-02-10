@@ -36,6 +36,7 @@
     if ($event.detail.target == $el.id) {
         if ($event.detail.content.success) {
             $dispatch('showmodal', {message: $event.detail.content.message, mode: 'success', redirectUrl: successRedirectUrl, redirectRoute: successRedirectRoute});
+            $dispatch('formerrors', {errors: []});
         } else if (typeof $event.detail.content.errors != undefined) {
             $dispatch('formerrors', {errors: $event.detail.content.errors});
         } else{
@@ -43,7 +44,7 @@
         }
     }
 "
-class="w-2/3 {{$form_width}} border border-base-300 bg-base-200 shadow-sm rounded-md p-3"
+class="w-2/3 {{$form_width}} border border-base-300 bg-base-200 shadow-sm rounded-md p-3 flex flex-col space-y-4"
 x-init="
     postUrl = '{{ route($form['action_route']) }}';
     @if (isset($form['success_redirect_route']))
@@ -56,69 +57,48 @@ x-init="
         @foreach ($form['items'] as $item)
             @switch($item['item_type'])
                 @case('input')
-                    @switch($item['input_type'])
-                        @case('select')
-                            <x-easyadmin::inputs.select
-                                :element="$item"
-                                :label_position="$form['label_position'] ?? 'top'"
-                                :_old="$_old ?? []"
-                                :xerrors="$errors ?? []"
-                                />
-                            @break
-                        @case('suggestlist')
-                            <x-easyadmin::inputs.suggestlist
-                                :element="$item"
-                                :label_position="$form['label_position'] ?? 'top'"
-                                :_old="$_old ?? []"
-                                :xerrors="$errors ?? []"
-                                />
-                            @break
-                        @case('file_uploader')
-                            <x-easyadmin::inputs.fileuploader
-                                :element="$item"
-                                :label_position="$form['label_position'] ?? 'top'"
-                                :_old="$_old ?? []"
-                                :xerrors="$errors ?? []"
-                                />
-                            @break
-                        @default
-                            @php
-                                $html_inputs = [
-                                    "button",
-                                    "checkbox",
-                                    "color",
-                                    "date",
-                                    "datetime-local",
-                                    "email",
-                                    // "file",
-                                    "hidden",
-                                    // "image",
-                                    "month",
-                                    "number",
-                                    "password",
-                                    // "radio",
-                                    // "range",
-                                    // "reset",
-                                    "search",
-                                    // "submit",
-                                    "tel",
-                                    "text",
-                                    "time",
-                                    "url",
-                                    "week",
-                                ];
-                            @endphp
-                            @if (in_array($item['input_type'], $html_inputs))
-                                <x-dynamic-component
-                                :component="'easyadmin::inputs.text'"
-                                :element="$item"
-                                :label_position="$form['label_position'] ?? 'top'"
-                                :_old="$_old ?? []"
-                                :xerrors="$errors ?? []"
-                                />
-                            @endif
-                            @break
-                    @endswitch
+                    @php
+                        $html_inputs = [
+                            "button",
+                            "checkbox",
+                            "color",
+                            "date",
+                            "datetime-local",
+                            "email",
+                            // "file",
+                            "hidden",
+                            // "image",
+                            "month",
+                            "number",
+                            "password",
+                            // "radio",
+                            // "range",
+                            // "reset",
+                            "search",
+                            // "submit",
+                            "tel",
+                            "text",
+                            "time",
+                            "url",
+                            "week",
+                        ];
+                    @endphp
+                    @if (in_array($item['input_type'], $html_inputs))
+                        <x-dynamic-component
+                        :component="'easyadmin::inputs.text'"
+                        :element="$item"
+                        :label_position="$form['label_position'] ?? 'top'"
+                        :_old="$_old ?? []"
+                        :xerrors="$errors ?? []"
+                        />
+                    @else
+                        <x-dynamic-component :component="$item['input_type']"
+                        :element="$item"
+                        :label_position="$form['label_position'] ?? 'top'"
+                        :_old="$_old ?? []"
+                        :xerrors="$errors ?? []"
+                        />
+                    @endif
                 @default
                     @break
             @endswitch

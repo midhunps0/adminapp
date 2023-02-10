@@ -7,26 +7,37 @@ use Illuminate\Support\Facades\Hash;
 use Ynotz\AccessControl\Models\Role;
 // use Ynotz\AccessControl\Models\User;
 use App\Models\User;
+use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Ynotz\EasyAdmin\Services\FormHelper;
 use Ynotz\AccessControl\Services\RoleService;
-use Ynotz\EasyAdmin\Services\DashboardService;
 use Ynotz\EasyAdmin\Traits\IsModelViewConnector;
 use Ynotz\EasyAdmin\Contracts\ModelViewConnector;
+use Ynotz\EasyAdmin\InputUpdateResponse;
+use Ynotz\MediaManager\Services\EAInputMediaValidator;
 
 class UserService implements ModelViewConnector
 {
     use IsModelViewConnector;
 
-    protected $storeValidationRules = [
-        'name' => 'required|min:3',
-        'password' => 'required|min:6',
-        'email' => 'required|email|unique:users,email',
-        'roles' => 'required',
-        'photo' => 'sometimes'
-        // 'photo.*' => 'file|size:512|mimes:jpeg'
-    ];
+    public function getStoreValidationRules(): array
+    {
+        return [
+            'name' => 'required|min:3',
+            'password' => 'required|min:6',
+            'email' => 'required|email|unique:users,email',
+            'roles' => 'required',
+            // 'photo' => (new EAInputMediaValidator())
+            //     ->maxSize(1, 'mb')
+            //     ->mimeTypes(['jpeg', 'jpg', 'png'])
+            //     ->getRules(),
+            'photo.*' => (new EAInputMediaValidator())
+                ->maxSize(1, 'mb')
+                ->mimeTypes(['jpeg', 'jpg', 'png'])
+                ->getRules()
+        ];
+    }
 
-    protected $mediaFields = [
+    public $mediaFields = [
         'photo' => []
     ];
 
@@ -168,40 +179,59 @@ class UserService implements ModelViewConnector
                     //             'getSlug'
                     //         ]
                     //     ],
-                    //     toggleOnEvents: ['useslug' => [['==', 'No', false], ['==', 'Yes', true]]],
-                    //     show: false,
+                    //     // toggleOnEvents: ['useslug' => [['==', 'No', false], ['==', 'Yes', true]]],
+                    //     show: true,
                     //     authorised: true,
                     // ),
-                    FormHelper::makeSelect(
-                        key: 'roles',
+                    // FormHelper::makeSelect(
+                    //     key: 'roles',
+                    //     label: 'Role',
+                    //     options: Role::all(),
+                    //     options_type: 'collection',
+                    //     options_id_key: 'id',
+                    //     options_text_key: 'name',
+                    //     options_src: [RoleService::class, 'suggestList'],
+                    //     properties: [
+                    //         'required' => true,
+                    //         'multiple' => false
+                    //     ],
+                    // ),
+                    FormHelper::makeSuggestlist(
+                        key: 'role',
                         label: 'Role',
-                        options: Role::all(),
+                        options_src: [RoleService::class, 'suggestList'],
                         options_type: 'collection',
                         options_id_key: 'id',
                         options_text_key: 'name',
-                        options_src: [RoleService::class, 'suggestList'],
+                        resetOnEvents: ['name'],
                         properties: [
                             'required' => true,
-                            'multiple' => false
+                            'multiple' => true
                         ],
+                        authorised: true,
                     ),
-                    // FormHelper::makeSuggestlist(
-                    //     key: 'role',
-                    //     label: 'Role',
-                    //     options_src: [RoleService::class, 'suggestList'],
-                    //     resetOnEvents: ['name'],
-                    //     properties: [
-                    //         'required' => true,
-                    //         'multiple' => true
-                    //     ],
-                    //     authorised: true,
-                    // ),
-                    FormHelper::makeFileUploader(
+                    FormHelper::makeImageUploader(
                         key: 'photo',
                         label: 'Photo',
-                        properties: ['required' => true, 'multiple' => false],
+                        properties: ['required' => true, 'multiple' => true],
+                        theme: 'regular',
+                        allowGallery: true,
+                        validations: [
+                            'max_size' => '1 mb',
+                            'mime_types' => ['image/jpg', 'image/jpeg', 'image/png']
+                            ]
                         // fireInputEvent: true
                     ),
+                    FormHelper::makeDatePicker(
+                        key: 'dob',
+                        label: 'Date of birth',
+                    ),
+                    FormHelper::makeCheckbox(
+                        key: 'verified',
+                        label: 'Is verified?',
+                        toggle: true,
+                        displayText: ['Yes', 'No']
+                    )
                 ]
             ]
         ];
@@ -216,9 +246,13 @@ class UserService implements ModelViewConnector
         return true;
     }
 
-    public function getSlug($text): string
+    public function getSlug($text): InputUpdateResponse
     {
-        return Str::slug($text);
+        return new InputUpdateResponse(
+            Str::slug($text),
+            'ok',
+            true
+        );
     }
 
     private function processBeforeStore(array $data): array

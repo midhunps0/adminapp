@@ -5,19 +5,12 @@ namespace Ynotz\MediaManager\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
-class MediaItem extends Model
+class MediaInstance extends Model
 {
-    use HasFactory;
-
-    protected $hidden = [
-        'id',
-        'created_at',
-        'filepath',
-        'updated_at',
-        'disk'
-    ];
+    use HasFactory, HasUlids;
 
     protected $fillable = [
         'ulid',
@@ -40,8 +33,8 @@ class MediaItem extends Model
         );
     }
 
-    public function instances()
+    public function mediaItem()
     {
-        return $this->hasMany(MediaInstance::class, 'media_item_id', 'id');
+        return $this->belongsTo(MediaItem::class, 'media_item_id', 'id');
     }
 }

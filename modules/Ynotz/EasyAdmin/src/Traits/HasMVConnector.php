@@ -5,6 +5,8 @@
 namespace Ynotz\EasyAdmin\Traits;
 
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
+
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\Request;
 use Ynotz\EasyAdmin\ImportExports\DefaultArrayExports;
@@ -83,7 +85,6 @@ trait HasMVConnector {
         info($request->all());
         try {
             $rules = $this->connectorService->getStoreValidationRules();
-            // $request->validate($rules);
             $validator = Validator::make($request->all(), $rules);
             $view = $this->createView ?? 'admin.'.Str::plural($this->itemName).'.create';
             $data = $this->connectorService->getCreatePageData();

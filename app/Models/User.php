@@ -44,4 +44,30 @@ class User extends Authenticatable implements MediaOwner
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
+
+    public function getMediaVariants(): array
+    {
+        return [
+            'photo' => [
+                'process_on_upload' => false,
+                'variants' => [
+                    'thumbnail' => [
+                        'size' => '100 x 100',
+                        'conversion' => 'resize',
+                        'custom_method' => null
+                    ],
+                ],
+            ]
+        ];
+    }
+
+    public function getMediaStorage(): array
+    {
+        return [
+            'photo' => [
+                'disk' => 'local',
+                'folder' => 'public/images/photo'
+            ]
+        ];
+    }
 }

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Contracts\Database\Query\Builder;
+use Ynotz\EasyAdmin\InputUpdateResponse;
 
 trait IsModelViewConnector{
     protected $modelClass;
@@ -194,11 +195,6 @@ trait IsModelViewConnector{
                 $ownFields[$key] = $value;
             }
         }
-        info('store data:');
-        info($data);
-        info($mediaFields);
-        info($ownFields);
-        info($relations);
 
         DB::beginTransaction();
         try {
@@ -228,7 +224,7 @@ trait IsModelViewConnector{
                         break;
                 }
             }
-            info('starting media processing..');
+
             foreach ($mediaFields as $fieldName => $val) {
                 $instance->addMediaFromEAInput($fieldName, $val);
             }
@@ -523,7 +519,7 @@ trait IsModelViewConnector{
         return $this->storeValidationRules ?? [];
     }
 
-    public function suggestlist($search = null)
+    public function suggestList($search = null)
     {
         if (isset($search)) {
             switch($this->defaultSearchMode) {
@@ -537,9 +533,18 @@ trait IsModelViewConnector{
                     $search = '%'.$search;
                     break;
             }
+            return new InputUpdateResponse(
+                result: $this->modelClass::where($this->defaultSearchColumn, 'like', $search)->get(),
+                message: 'ok',
+                isvalid: true
+            );
             return $this->modelClass::where($this->defaultSearchColumn, 'like', $search)->get();
         } else {
-            return $this->modelClass::all();
+            return new InputUpdateResponse(
+                result: $this->modelClass::all(),
+                message: 'ok',
+                isvalid: true
+            );
         }
     }
 

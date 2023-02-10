@@ -77,7 +77,6 @@
             'relative',
             'form-control',
             $wclass,
-            'my-4' => $label_position != 'side',
             'my-6 flex flex-row' => $label_position == 'side'
         ])
     >

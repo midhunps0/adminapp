@@ -15,5 +15,10 @@ class MediaHelper
     {
 
     }
+
+    public static function validateSize()
+    {
+        return [];
+    }
 }
 ?>

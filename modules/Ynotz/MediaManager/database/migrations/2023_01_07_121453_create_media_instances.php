@@ -13,11 +13,13 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::create('media_items_owners', function (Blueprint $table) {
+        Schema::create('media_instances', function (Blueprint $table) {
+            $table->ulid('id');
             $table->foreignId('mediaitem_id')->constrained('media_items', 'id');
             $table->morphs('mediaowner');
             $table->string('property');
             $table->json('custom_properties')->nullable();
+            $table->foreignId('created_by')->constrained('users', 'id');
             $table->timestamps();
         });
     }
@@ -29,6 +31,6 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('models_media');
+        Schema::dropIfExists('media_instances');
     }
 };
